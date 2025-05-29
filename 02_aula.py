@@ -1,30 +1,30 @@
 import streamlit as st
 
 
-MENSAGENS_EXEMPLO = [
-    ('user', 'Olá'),
-    ('assistant', 'Tudo bem?'),
-    ('user', 'Tudo ótimo'),
-]
 
-def pagina_chat():
-    st.header('🤖Bem-vindo ao Oráculo', divider=True)
+class PageChat:
+    def __init__(self):
+        self.messages_list = [
+            ("user", "Hello"),
+            ("assistant", "How are you?"),
+            ("user", "I'm fine!"),
+        ]
 
-    mensagens = st.session_state.get('mensagens', MENSAGENS_EXEMPLO)
-    for mensangem in mensagens:
-        chat = st.chat_message(mensangem[0])
-        chat.markdown(mensangem[1])
+    def start_page_chat(self):
+        st.header("🤖Welcome to the Oracle", divider=True)
 
-    input_usuario = st.chat_input('Fale com o oráculo')
-    if input_usuario:
-        mensagens.append(('user', input_usuario))
-        st.session_state['mensagens'] = mensagens
-        st.rerun()
+        messages = st.session_state.get('messages', self.messages_list)
+        for message in messages:
+            chat = st.chat_message(message[0])
+            chat.markdown(message[1])
 
-
-def main():
-    pagina_chat()
+        input_usuario = st.chat_input("Talk to the oracle")
+        if input_usuario:
+            messages.append(("user", input_usuario))
+            st.session_state["messages"] = messages
+            st.rerun()
 
 
 if __name__ == '__main__':
-    main()
+    chat_instance = PageChat()
+    chat_instance.start_page_chat()
