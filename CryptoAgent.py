@@ -1,4 +1,5 @@
 import streamlit as st
+from langchain.memory import ConversationBufferMemory
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
 
@@ -8,12 +9,6 @@ from utils.config import secrets
 
 class PageChat:
     def __init__(self):
-        self.messages_list = [
-            ("user", "Hello"),
-            ("assistant", "How are you?"),
-            ("user", "I'm fine!"),
-        ]
-
         self.models_data = self.get_models()
     
         self.type_mapping_dict = {
@@ -44,12 +39,13 @@ class PageChat:
             }
         }
 
+
     @staticmethod
     @st.cache_resource
     def get_models():
         return {
             "OpenAI": {
-                "llm": ChatOpenAI(api_key=secrets.get("OPENAI_API_KEY")),
+                "llm": ChatOpenAI(api_key="default"),
                 "models": [
                     "gpt-4o-mini",
                     "gpt-4o",
@@ -58,7 +54,7 @@ class PageChat:
                 ]
             },
             "Groq": {
-                "llm": ChatGroq(api_key=secrets.get("GROQ_API_KEY")),
+                "llm": ChatGroq(api_key="default"),
                 "models": [
                     "llama-3.1-70b-versatile",
                     "gemma2-9b-it",
@@ -66,6 +62,30 @@ class PageChat:
                 ]
             }
         }
+    
+
+    @staticmethod
+    @st.cache_resource
+    def get_memory():
+        return ConversationBufferMemory()
+    
+
+    def set_model(self, provider: str, llm, model: str):
+        llm.__init__(
+            api_key=secrets.get(f"{provider.upper()}_API_KEY"),
+            model=model
+        )
+        st.session_state["provider"] = provider
+        st.session_state["llm"] = llm
+    
+
+    def add_user_message(self, memory: ConversationBufferMemory, message: str) -> None:
+        memory.chat_memory.add_user_message(message)
+
+
+    def add_ai_message(self, memory: ConversationBufferMemory, message: str) -> None:
+        memory.chat_memory.add_ai_message(message)
+
 
     def generate_input_loader(self, data_set: dict) -> st:
         action = data_set.get("action")
@@ -85,17 +105,22 @@ class PageChat:
 
     def chat(self):
         st.header("🤖Welcome to the Oracle", divider=True)
-
-        messages = st.session_state.get('messages', self.messages_list)
-        for message in messages:
-            chat = st.chat_message(message[0])
-            chat.markdown(message[1])
+        stored_memory = self.get_memory()
+        memory = st.session_state.get('memory', stored_memory)
+        for message in memory.buffer_as_messages:
+            chat = st.chat_message(message.type)
+            chat.markdown(message.content)
 
         user_input = st.chat_input("Talk to the oracle")
         if user_input:
-            messages.append(("user", user_input))
-            st.session_state["messages"] = messages
-            st.rerun()
+            self.add_user_message(stored_memory, user_input)
+            chat = st.chat_message("human")
+            chat.markdown(user_input)
+
+            chat = st.chat_message("ai")
+            answer = chat.write_stream(st.session_state["llm"].stream(user_input))
+            self.add_ai_message(stored_memory, answer)
+            st.session_state["memory"] = memory
 
 
     def side_bar(self):
@@ -112,10 +137,13 @@ class PageChat:
                 "Select LLM provider",
                 list(self.models_data.keys())
             )
+            llm = self.models_data[provider]["llm"]
             model = st.selectbox(
                 "Select a model",
                 self.models_data.get(provider)["models"]
             )
+            self.set_model(provider, llm, model)
+
 
 
     def run(self):
