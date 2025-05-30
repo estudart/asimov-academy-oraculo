@@ -91,9 +91,9 @@ class PageChat:
             chat = st.chat_message(message[0])
             chat.markdown(message[1])
 
-        input_user = st.chat_input("Talk to the oracle")
-        if input_user:
-            messages.append(("user", input_user))
+        user_input = st.chat_input("Talk to the oracle")
+        if user_input:
+            messages.append(("user", user_input))
             st.session_state["messages"] = messages
             st.rerun()
 
