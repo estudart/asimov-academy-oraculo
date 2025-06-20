@@ -1,9 +1,12 @@
+import tempfile
+
 import streamlit as st
 from langchain.memory import ConversationBufferMemory
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
 
 from utils.config import secrets
+from utils.loaders import *
 
 
 
@@ -77,6 +80,30 @@ class PageChat:
         )
         st.session_state["provider"] = provider
         st.session_state["llm"] = llm
+
+
+    def load_files(self, file_type, file):
+        if file_type == 'Site':
+            documento = load_website(file)
+        if file_type == 'Youtube':
+            documento = load_youtube(file)
+        if file_type == 'PDF':
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp:
+                temp.write(file.read())
+                nome_temp = temp.name
+            print("passed here")
+            documento = load_pdf(nome_temp)
+        if file_type == '.csv':
+            with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as temp:
+                temp.write(file.read())
+                nome_temp = temp.name
+            documento = load_csv(nome_temp)
+        if file_type == '.txt':
+            with tempfile.NamedTemporaryFile(suffix='.txt', delete=False) as temp:
+                temp.write(file.read())
+                nome_temp = temp.name
+            documento = load_txt(nome_temp)
+        return documento
     
 
     def add_user_message(self, memory: ConversationBufferMemory, message: str) -> None:
@@ -131,7 +158,7 @@ class PageChat:
                 "Select the file type", 
                 list(self.type_mapping_dict.keys())
             )
-            self.generate_input_loader(self.type_mapping_dict[file_type])
+            file = self.generate_input_loader(self.type_mapping_dict[file_type])
         with tabs[1]:
             provider = st.selectbox(
                 "Select LLM provider",
@@ -143,6 +170,9 @@ class PageChat:
                 self.models_data.get(provider)["models"]
             )
             self.set_model(provider, llm, model)
+
+        if st.button('Start Oracle', use_container_width=True):
+            print(self.load_files(file_type, file))
 
 
 
