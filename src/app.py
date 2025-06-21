@@ -134,22 +134,16 @@ class PageChat:
         return file
 
     def conversation(self, file_type, document):
-        system_message = '''Você é um assistente amigável chamado Oráculo.
-        Você possui acesso às seguintes informações vindas 
-        de um documento {}: 
+        system_message = '''Your are a friendly agent called Oracle.
+        You have access for the given information from a document {}: 
 
         ####
         {}
         ####
 
-        Utilize as informações fornecidas para basear as suas respostas.
+        Base your answers on the information given by the context.
 
-        Sempre que houver $ na sua saída, substita por S.
-
-        Se a informação do documento for algo como "Just a moment...Enable JavaScript and cookies to continue" 
-        sugira ao usuário carregar novamente o Oráculo!'''.format(file_type, document)
-
-        print(system_message)
+        '''.format(file_type, document)
 
         template = ChatPromptTemplate.from_messages([
             ('system', system_message),
