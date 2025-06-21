@@ -4,6 +4,7 @@ import streamlit as st
 from langchain.memory import ConversationBufferMemory
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
+from langchain.prompts import ChatPromptTemplate
 
 from utils.config import secrets
 from utils.loaders import *
@@ -91,7 +92,6 @@ class PageChat:
             with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp:
                 temp.write(file.read())
                 nome_temp = temp.name
-            print("passed here")
             documento = load_pdf(nome_temp)
         if file_type == '.csv':
             with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as temp:
@@ -113,6 +113,10 @@ class PageChat:
     def add_ai_message(self, memory: ConversationBufferMemory, message: str) -> None:
         memory.chat_memory.add_ai_message(message)
 
+    
+    def clean_memory(self, memory: ConversationBufferMemory) -> None:
+        memory.chat_memory.clear()
+
 
     def generate_input_loader(self, data_set: dict) -> st:
         action = data_set.get("action")
@@ -129,6 +133,32 @@ class PageChat:
             pass
         return file
 
+    def conversation(self, file_type, document):
+        system_message = '''Você é um assistente amigável chamado Oráculo.
+        Você possui acesso às seguintes informações vindas 
+        de um documento {}: 
+
+        ####
+        {}
+        ####
+
+        Utilize as informações fornecidas para basear as suas respostas.
+
+        Sempre que houver $ na sua saída, substita por S.
+
+        Se a informação do documento for algo como "Just a moment...Enable JavaScript and cookies to continue" 
+        sugira ao usuário carregar novamente o Oráculo!'''.format(file_type, document)
+
+        print(system_message)
+
+        template = ChatPromptTemplate.from_messages([
+            ('system', system_message),
+            ('placeholder', '{chat_history}'),
+            ('user', '{input}')
+        ])
+        chain = template | st.session_state["llm"]
+
+        st.session_state['chain'] = chain
 
     def chat(self):
         st.header("🤖Welcome to the Oracle", divider=True)
@@ -145,7 +175,10 @@ class PageChat:
             chat.markdown(user_input)
 
             chat = st.chat_message("ai")
-            answer = chat.write_stream(st.session_state["llm"].stream(user_input))
+            answer = chat.write_stream(st.session_state["chain"].stream({
+                "input": user_input,
+                "chat_history": stored_memory.buffer_as_messages
+            }))
             self.add_ai_message(stored_memory, answer)
             st.session_state["memory"] = memory
 
@@ -172,7 +205,11 @@ class PageChat:
             self.set_model(provider, llm, model)
 
         if st.button('Start Oracle', use_container_width=True):
-            print(self.load_files(file_type, file))
+            document = self.load_files(file_type, file)
+            self.conversation(file_type, document)
+
+        if st.button('Remove conversation history', use_container_width=True):
+            self.clean_memory(self.get_memory())
 
 
 
